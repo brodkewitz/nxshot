@@ -35,6 +35,18 @@ parser.add_argument('-d',
                     help='Download IDs from nswdb.com instead of switchbrew.org\n \
           NOTE: Regions may not match')
 
+parser.add_argument('--ignore-existing',
+                    action='store_true',
+                    help="Don't copy existing destination files.")
+
+parser.add_argument('-o',
+                    '--output-folder',
+                    type=Path,
+                    help=('Choose an alternative output directory. '
+                          'Folders for game titles will be created in '
+                          'this directory. The default is '
+                          'FILEPATH/Organized.'))
+
 # If there are arguments, parse them. If not, exit
 args = parser.parse_args()
 
@@ -151,6 +163,7 @@ def check_id(game_id, ENCRYPTED_IDS):
 
 def check_folders(file_list):
     current = 0
+    skipped = 0
     length = len(file_list)
     # print(file_list)
     for media_path in file_list:
@@ -182,19 +195,30 @@ def check_folders(file_list):
 
         posix_timestamp = time.timestamp()
 
-        output_folder = args.filepath.joinpath(
-            'Organized', check_id(game_id, ENCRYPTED_IDS))
+        if args.output_folder:
+            output_folder = args.output_folder.joinpath(
+                check_id(game_id, ENCRYPTED_IDS))
+        else:
+            output_folder = args.filepath.joinpath(
+                'Organized', check_id(game_id, ENCRYPTED_IDS))
 
         output_folder.mkdir(parents=True, exist_ok=True)
 
-        new_file = copy(str(media_path), str(output_folder))
+        output_file = output_folder.joinpath(media_path.name)
+        if args.ignore_existing and output_file.exists():
+            skipped += 1
+            new_file = output_file
+        else:
+            new_file = copy(str(media_path), str(output_folder))
+            os.utime(new_file, (posix_timestamp, posix_timestamp))
 
-        os.utime(new_file, (posix_timestamp, posix_timestamp))
 
         current += 1
 
         print('Organized {} of {} files.\r'.format(current, length), end='')
     print("")
+    if args.ignore_existing:
+        print(f'Skipped {skipped} existing files.')
 
 
 # Load game ids and their names from external file
